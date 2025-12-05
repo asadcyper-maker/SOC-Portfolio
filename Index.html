@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SOC Investigation: Suspicious Proxy Activity</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Chosen Palette: Professional Slate & Cyber Blue -->
+    <!-- A clean, light-themed palette with slate neutrals and vivid blue accents for a professional SOC feel. -->
+    <!-- Background: #F8FAFC (Slate 50) -->
+    <!-- Primary Text: #0F172A (Slate 900) -->
+    <!-- Accent: #2563EB (Blue 600) -->
+    <!-- Alert: #EF4444 (Red 500) -->
+
+    <!-- Application Structure Plan:
+         1. Header: Executive summary and key incident metadata.
+         2. Dashboard Grid: 
+            - Top Row: High-level metrics (Status, Severity, Threat Type).
+            - Middle Row: Interactive "Investigation Lifecycle" (The core storytelling element).
+            - Bottom Row: Technical Deep Dive (Terminal simulation, IOCs) and Data Visualization.
+         3. Footer: Contact/Author info.
+         
+         Why this structure?
+         It allows a recruiter to get the "at a glance" competence (metrics) then dive into the "how" (lifecycle) and finally check technical depth (IOCs/Terminal).
+    -->
+
+    <!-- Visualization & Content Choices:
+         1. Threat Confidence Gauge (Chart.js Doughnut): To visually represent the certainty of the finding (VeePN extension).
+         2. Investigation Timeline (Chart.js Bar): To show the time spent on each phase, emphasizing efficiency.
+         3. Interactive Terminal (HTML/JS): To simulate the 'nslookup' step mentioned in the report, showing command-line proficiency.
+         4. Lifecycle Tabs (HTML/JS): To break down the narrative into digestible steps (Observation -> Remediation).
+         
+         CONFIRMATION: NO SVG graphics used. NO Mermaid JS used.
+    -->
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #F8FAFC;
+            color: #0F172A;
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 100%;
+            height: 250px;
+            margin: 0 auto;
+        }
+        .step-content {
+            display: none;
+            animation: fadeIn 0.3s ease-in-out;
+        }
+        .step-content.active {
+            display: block;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .terminal-text {
+            font-family: 'Courier New', Courier, monospace;
+        }
+        /* Custom scrollbar for terminal */
+        .custom-scroll::-webkit-scrollbar {
+            width: 8px;
+        }
+        .custom-scroll::-webkit-scrollbar-track {
+            background: #1e293b;
+        }
+        .custom-scroll::-webkit-scrollbar-thumb {
+            background: #475569;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+    <!-- Navigation / Header -->
+    <nav class="bg-white border-b border-slate-200 shadow-sm sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0 flex items-center gap-2">
+                        <div class="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold text-lg">S</div>
+                        <h1 class="text-xl font-bold text-slate-800 tracking-tight">SOC Investigation Portfolio</h1>
+                    </div>
+                </div>
+                <div class="flex items-center gap-4">
+                    <span class="px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 border border-green-200">Case Resolved</span>
+                    <span class="text-sm text-slate-500">Ref: INC-PROXY-001</span>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
+        
+        <!-- Executive Summary Section -->
+        <div class="mb-8">
+            <div class="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-6">
+                <div>
+                    <h2 class="text-3xl font-bold text-slate-900">Suspicious Proxy Authentication</h2>
+                    <p class="mt-2 text-lg text-slate-600 max-w-3xl">
+                        A real-world troubleshooting analysis of an unexpected authentication popup attempting to route traffic through an unknown endpoint.
+                    </p>
+                </div>
+                <button onclick="window.print()" class="bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-medium py-2 px-4 rounded-lg shadow-sm transition-colors flex items-center gap-2">
+                    <span>🖨️ Print Report</span>
+                </button>
+            </div>
+
+            <!-- Key Metrics Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 border-l-4 border-l-orange-500">
+                    <div class="text-sm font-medium text-slate-500 uppercase tracking-wide">Risk Level</div>
+                    <div class="mt-1 text-2xl font-bold text-slate-900">Medium</div>
+                    <div class="mt-1 text-xs text-orange-600 font-medium">Potential Data Leakage</div>
+                </div>
+                <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 border-l-4 border-l-blue-500">
+                    <div class="text-sm font-medium text-slate-500 uppercase tracking-wide">Classification</div>
+                    <div class="mt-1 text-2xl font-bold text-slate-900">PUP / Adware</div>
+                    <div class="mt-1 text-xs text-blue-600 font-medium">Browser Extension</div>
+                </div>
+                <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 border-l-4 border-l-purple-500">
+                    <div class="text-sm font-medium text-slate-500 uppercase tracking-wide">Detection Method</div>
+                    <div class="mt-1 text-2xl font-bold text-slate-900">User Report</div>
+                    <div class="mt-1 text-xs text-purple-600 font-medium">Visual Anomaly</div>
+                </div>
+                <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 border-l-4 border-l-green-500">
+                    <div class="text-sm font-medium text-slate-500 uppercase tracking-wide">Outcome</div>
+                    <div class="mt-1 text-2xl font-bold text-slate-900">Remediated</div>
+                    <div class="mt-1 text-xs text-green-600 font-medium">Extension Removed</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Dashboard Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            
+            <!-- LEFT COLUMN: Interactive Story (2/3 width) -->
+            <div class="lg:col-span-2 space-y-8">
+                
+                <!-- Investigation Lifecycle Widget -->
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div class="border-b border-slate-200 bg-slate-50 px-6 py-4">
+                        <h3 class="text-lg font-semibold text-slate-800 flex items-center gap-2">
+                            <span>🔍</span> Investigation Lifecycle
+                        </h3>
+                        <p class="text-sm text-slate-500 mt-1">Click the tabs below to walk through the analysis methodology.</p>
+                    </div>
+                    
+                    <!-- Tabs -->
+                    <div class="flex border-b border-slate-200 overflow-x-auto">
+                        <button onclick="switchTab('observation')" id="tab-observation" class="tab-btn flex-1 py-4 px-4 text-sm font-medium text-blue-600 border-b-2 border-blue-600 bg-blue-50 hover:bg-slate-50 transition-colors whitespace-nowrap">
+                            1. Observation
+                        </button>
+                        <button onclick="switchTab('verification')" id="tab-verification" class="tab-btn flex-1 py-4 px-4 text-sm font-medium text-slate-500 border-b-2 border-transparent hover:text-slate-700 hover:bg-slate-50 transition-colors whitespace-nowrap">
+                            2. Verification
+                        </button>
+                        <button onclick="switchTab('rootcause')" id="tab-rootcause" class="tab-btn flex-1 py-4 px-4 text-sm font-medium text-slate-500 border-b-2 border-transparent hover:text-slate-700 hover:bg-slate-50 transition-colors whitespace-nowrap">
+                            3. Root Cause
+                        </button>
+                        <button onclick="switchTab('resolution')" id="tab-resolution" class="tab-btn flex-1 py-4 px-4 text-sm font-medium text-slate-500 border-b-2 border-transparent hover:text-slate-700 hover:bg-slate-50 transition-colors whitespace-nowrap">
+                            4. Resolution
+                        </button>
+                    </div>
+
+                    <!-- Content Area -->
+                    <div class="p-6 min-h-[300px]">
+                        
+                        <!-- Step 1: Observation -->
+                        <div id="content-observation" class="step-content active">
+                            <h4 class="text-xl font-bold text-slate-900 mb-4">The Anomaly</h4>
+                            <div class="flex flex-col md:flex-row gap-6">
+                                <div class="flex-1 text-slate-600 space-y-3">
+                                    <p><strong>Trigger:</strong> An unexpected Windows security popup appeared during routine browsing.</p>
+                                    <p><strong>Details:</strong> The popup requested username/password authentication for a specific proxy URL.</p>
+                                    <div class="bg-yellow-50 border border-yellow-200 p-3 rounded-lg text-sm text-yellow-800 mt-4">
+                                        <strong>🚩 Red Flag:</strong> Users should never see raw proxy authentication prompts unless specifically configured by IT.
+                                    </div>
+                                </div>
+                                <div class="flex-1 bg-slate-100 rounded-lg p-4 border border-slate-200 flex flex-col items-center justify-center text-center">
+                                    <div class="bg-white shadow-md rounded-md p-4 max-w-xs w-full text-left border border-slate-300">
+                                        <div class="text-sm font-semibold mb-2 border-b pb-2">Sign in</div>
+                                        <p class="text-xs text-slate-600 mb-3">The proxy <span class="font-mono text-blue-600">trout-west-1-us.maxxxcdn.com:58995</span> requires a username and password.</p>
+                                        <div class="h-6 bg-slate-100 border mb-2 rounded"></div>
+                                        <div class="h-6 bg-slate-100 border mb-4 rounded"></div>
+                                        <div class="flex justify-end gap-2">
+                                            <div class="px-3 py-1 bg-blue-500 text-white text-xs rounded">Sign in</div>
+                                        </div>
+                                    </div>
+                                    <p class="text-xs text-slate-400 mt-2">Recreation of the incident popup</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Step 2: Verification -->
+                        <div id="content-verification" class="step-content">
+                            <h4 class="text-xl font-bold text-slate-900 mb-4">DNS & Network Analysis</h4>
+                            <p class="text-slate-600 mb-4">To determine if the domain was malicious, I performed a DNS lookup to trace its hosting infrastructure.</p>
+                            
+                            <!-- Simulated Terminal -->
+                            <div class="bg-slate-900 rounded-lg shadow-inner overflow-hidden mb-4">
+                                <div class="bg-slate-800 px-4 py-2 flex items-center gap-2">
+                                    <div class="w-3 h-3 rounded-full bg-red-500"></div>
+                                    <div class="w-3 h-3 rounded-full bg-yellow-500"></div>
+                                    <div class="w-3 h-3 rounded-full bg-green-500"></div>
+                                    <span class="text-xs text-slate-400 ml-2">PowerShell</span>
+                                </div>
+                                <div class="p-4 font-mono text-sm text-green-400 custom-scroll h-48 overflow-y-auto">
+                                    <p class="mb-2"><span class="text-blue-400">PS C:\Users\Admin></span> nslookup trout-west-1-us.maxxxcdn.com</p>
+                                    <p class="mb-2 text-slate-300">Server:  Unknown</p>
+                                    <p class="mb-2 text-slate-300">Address:  10.78.12.249</p>
+                                    <br>
+                                    <p class="mb-2 text-slate-300">Non-authoritative answer:</p>
+                                    <p class="mb-2 text-slate-300">Name:    trout-west-1-us.maxxxcdn.com</p>
+                                    <p class="mb-2 text-yellow-300">Address: 15.204.43.197</p>
+                                    <br>
+                                    <p class="mb-1"><span class="text-blue-400">PS C:\Users\Admin></span> # IP resolves to AWS Infrastructure</p>
+                                    <p class="mb-1 animate-pulse">_</p>
+                                </div>
+                            </div>
+                            <p class="text-sm text-slate-500"><strong>Analysis:</strong> The domain resolves to an AWS IP (15.204.43.197). While not inherently malicious, the usage of a generic cloud IP for a proxy without user consent is suspicious.</p>
+                        </div>
+
+                        <!-- Step 3: Root Cause -->
+                        <div id="content-rootcause" class="step-content">
+                            <h4 class="text-xl font-bold text-slate-900 mb-4">Endpoint Investigation</h4>
+                            <p class="text-slate-600 mb-4">Treated the system as potentially compromised. Conducted a methodical review of active artifacts.</p>
+                            
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div class="border border-slate-200 p-4 rounded-lg bg-slate-50">
+                                    <h5 class="font-semibold text-slate-800 mb-2">Actions Taken</h5>
+                                    <ul class="list-disc list-inside text-sm text-slate-600 space-y-1">
+                                        <li>Checked running processes</li>
+                                        <li>Verified Windows Proxy Settings</li>
+                                        <li>Audited Browser Extensions</li>
+                                        <li>Ran Full Malware Scan</li>
+                                    </ul>
+                                </div>
+                                <div class="border border-red-200 bg-red-50 p-4 rounded-lg flex items-center justify-center flex-col text-center">
+                                    <div class="text-3xl mb-2">🧩</div>
+                                    <h5 class="font-bold text-red-800">Culprit Found</h5>
+                                    <p class="text-sm text-red-700 font-medium">Extension: "Free VeePN"</p>
+                                    <p class="text-xs text-red-600 mt-1">Attempted to force traffic through own proxy.</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Step 4: Resolution -->
+                        <div id="content-resolution" class="step-content">
+                            <h4 class="text-xl font-bold text-slate-900 mb-4">Remediation & Takeaways</h4>
+                            
+                            <div class="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+                                <div class="flex items-start gap-3">
+                                    <div class="text-green-600 text-xl">✅</div>
+                                    <div>
+                                        <h5 class="font-bold text-green-900">Immediate Fix</h5>
+                                        <p class="text-sm text-green-800">Removed the "Free VeePN" extension. Verified network traffic returned to normal. No further popup activity observed.</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <h5 class="font-semibold text-slate-800 mb-2">Key Lessons Learned</h5>
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                <div class="bg-white border border-slate-200 p-3 rounded text-center text-sm text-slate-600 shadow-sm">
+                                    Validate Domains via DNS
+                                </div>
+                                <div class="bg-white border border-slate-200 p-3 rounded text-center text-sm text-slate-600 shadow-sm">
+                                    Audit Extensions Regularly
+                                </div>
+                                <div class="bg-white border border-slate-200 p-3 rounded text-center text-sm text-slate-600 shadow-sm">
+                                    Investigate ALL Popups
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+                <!-- Indicators of Compromise (IOCs) Table -->
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200">
+                    <div class="border-b border-slate-200 bg-slate-50 px-6 py-4">
+                        <h3 class="text-lg font-semibold text-slate-800">Technical Artifacts (IOCs)</h3>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm text-left">
+                            <thead class="text-xs text-slate-500 uppercase bg-slate-50 border-b">
+                                <tr>
+                                    <th class="px-6 py-3 font-medium">Type</th>
+                                    <th class="px-6 py-3 font-medium">Value</th>
+                                    <th class="px-6 py-3 font-medium">Context</th>
+                                </tr>
+                            </thead>
+                            <tbody class="text-slate-600 divide-y divide-slate-100">
+                                <tr class="hover:bg-slate-50">
+                                    <td class="px-6 py-3 font-mono text-xs text-purple-600 bg-purple-50 w-24 text-center rounded-r-md my-1 inline-block mx-4">DOMAIN</td>
+                                    <td class="px-6 py-3 font-mono">trout-west-1-us.maxxxcdn.com</td>
+                                    <td class="px-6 py-3">Proxy Endpoint</td>
+                                </tr>
+                                <tr class="hover:bg-slate-50">
+                                    <td class="px-6 py-3 font-mono text-xs text-blue-600 bg-blue-50 w-24 text-center rounded-r-md my-1 inline-block mx-4">IP ADDR</td>
+                                    <td class="px-6 py-3 font-mono">15.204.43.197</td>
+                                    <td class="px-6 py-3">AWS Hosting (US)</td>
+                                </tr>
+                                <tr class="hover:bg-slate-50">
+                                    <td class="px-6 py-3 font-mono text-xs text-orange-600 bg-orange-50 w-24 text-center rounded-r-md my-1 inline-block mx-4">PORT</td>
+                                    <td class="px-6 py-3 font-mono">58995</td>
+                                    <td class="px-6 py-3">High Ephemeral Port</td>
+                                </tr>
+                                <tr class="hover:bg-slate-50">
+                                    <td class="px-6 py-3 font-mono text-xs text-red-600 bg-red-50 w-24 text-center rounded-r-md my-1 inline-block mx-4">SOURCE</td>
+                                    <td class="px-6 py-3 font-mono">Free VeePN Extension</td>
+                                    <td class="px-6 py-3">Browser Plugin</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- RIGHT COLUMN: Visualizations (1/3 width) -->
+            <div class="lg:col-span-1 space-y-8">
+                
+                <!-- Chart 1: Investigation Time Allocation -->
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+                    <h3 class="text-sm font-bold text-slate-500 uppercase tracking-wide mb-4">Investigation Effort</h3>
+                    <div class="chart-container">
+                        <canvas id="timeChart"></canvas>
+                    </div>
+                    <p class="text-xs text-slate-400 mt-3 text-center italic">Approximate time distribution per phase</p>
+                </div>
+
+                <!-- Chart 2: Threat Assessment -->
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+                    <h3 class="text-sm font-bold text-slate-500 uppercase tracking-wide mb-4">Threat Assessment Score</h3>
+                    <div class="chart-container">
+                        <canvas id="threatChart"></canvas>
+                    </div>
+                    <div class="mt-4 space-y-2">
+                        <div class="flex justify-between text-xs">
+                            <span class="text-slate-600">VirusTotal Detections</span>
+                            <span class="font-bold text-slate-900">2 / 90</span>
+                        </div>
+                        <div class="w-full bg-slate-100 rounded-full h-2">
+                            <div class="bg-orange-400 h-2 rounded-full" style="width: 5%"></div>
+                        </div>
+                        <p class="text-xs text-slate-500 mt-1">Low vendor detection implies greyware/PUP rather than overt malware.</p>
+                    </div>
+                </div>
+
+                <!-- About the Analyst -->
+                <div class="bg-slate-900 rounded-xl shadow-sm text-white p-6">
+                    <h3 class="font-bold text-lg mb-2">About the Analyst</h3>
+                    <p class="text-slate-300 text-sm mb-4">
+                        SOC Analyst focused on incident response, threat hunting, and digital forensics. Passionate about uncovering the "why" behind anomalies.
+                    </p>
+                    <a href="#" class="block w-full py-2 bg-blue-600 hover:bg-blue-500 text-center rounded-lg text-sm font-medium transition-colors">
+                        Connect on LinkedIn
+                    </a>
+                </div>
+
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t border-slate-200 mt-8">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+            <p class="text-center text-sm text-slate-500">
+                Generated for SOC Portfolio &copy; 2024. Based on real-world incident analysis.
+            </p>
+        </div>
+    </footer>
+
+    <!-- Logic Script -->
+    <script>
+        // --- Tab Switching Logic ---
+        const tabs = ['observation', 'verification', 'rootcause', 'resolution'];
+        
+        function switchTab(selectedTab) {
+            // 1. Update Buttons
+            tabs.forEach(tab => {
+                const btn = document.getElementById(`tab-${tab}`);
+                if (tab === selectedTab) {
+                    btn.classList.remove('text-slate-500', 'border-transparent', 'hover:text-slate-700', 'hover:bg-slate-50');
+                    btn.classList.add('text-blue-600', 'border-blue-600', 'bg-blue-50');
+                } else {
+                    btn.classList.add('text-slate-500', 'border-transparent', 'hover:text-slate-700', 'hover:bg-slate-50');
+                    btn.classList.remove('text-blue-600', 'border-blue-600', 'bg-blue-50');
+                }
+            });
+
+            // 2. Update Content
+            tabs.forEach(tab => {
+                const content = document.getElementById(`content-${tab}`);
+                if (tab === selectedTab) {
+                    content.classList.add('active');
+                } else {
+                    content.classList.remove('active');
+                }
+            });
+        }
+
+        // --- Chart.js Implementations ---
+        
+        // Chart 1: Time Allocation (Bar Chart)
+        const ctxTime = document.getElementById('timeChart').getContext('2d');
+        new Chart(ctxTime, {
+            type: 'bar',
+            data: {
+                labels: ['Observation', 'DNS Verify', 'Root Cause', 'Remediation'],
+                datasets: [{
+                    label: 'Minutes Spent',
+                    data: [5, 10, 25, 5], // Estimated timeline based on report logic
+                    backgroundColor: [
+                        'rgba(148, 163, 184, 0.7)', // Slate 400
+                        'rgba(96, 165, 250, 0.7)',  // Blue 400
+                        'rgba(37, 99, 235, 0.7)',   // Blue 600 (Highlight - hardest part)
+                        'rgba(34, 197, 94, 0.7)'    // Green 500
+                    ],
+                    borderRadius: 4,
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return context.raw + ' mins';
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        grid: { display: true, color: '#f1f5f9' }
+                    },
+                    x: {
+                        grid: { display: false }
+                    }
+                }
+            }
+        });
+
+        // Chart 2: Threat Assessment (Doughnut)
+        const ctxThreat = document.getElementById('threatChart').getContext('2d');
+        new Chart(ctxThreat, {
+            type: 'doughnut',
+            data: {
+                labels: ['Safe/Clean', 'Suspicious', 'Malicious'],
+                datasets: [{
+                    data: [88, 10, 2], // Visualizing the VirusTotal results roughly
+                    backgroundColor: [
+                        '#cbd5e1', // Slate 300 (Safe)
+                        '#fbbf24', // Amber 400 (Suspicious)
+                        '#ef4444'  // Red 500 (Malicious)
+                    ],
+                    borderWidth: 2,
+                    borderColor: '#ffffff'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: { usePointStyle: true, boxWidth: 8 }
+                    }
+                },
+                cutout: '70%'
+            }
+        });
+
+    </script>
+</body>
+</html>
